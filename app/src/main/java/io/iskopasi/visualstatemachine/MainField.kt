@@ -57,6 +57,25 @@ fun MainField() {
         mutableStateOf(IntSize.Zero)
     }
 
+    val ctrl = remember {
+        StateMachineController().apply {
+            create("Start")
+            addNext("1")
+            addNext("2")
+            addNext("3")
+            addNext("4")
+            addNext("5")
+            addNext("end")
+        }
+    }
+
+    ctrl.reset()
+
+    while (ctrl.hasNext()) {
+        val state = ctrl.state
+        "--> Currently in state: ${state.id} ${state.name}".e
+        ctrl.advance()
+    }
 
     Box(
         modifier = Modifier
