@@ -16,6 +16,8 @@ enum class VSMNodeType(
 ) {
     START(Color.White, Color.Black, "START", 0.dp, 0.dp),
     REGULAR(Color.DarkGray, Color.White, "", 0.dp, 0.dp),
+    SELECTOR(Color.Green, Color.Black, "", 0.dp, 0.dp),
+    TERMINAL(Color.Red, Color.White, "", 0.dp, 0.dp),
     END(Color.Black, Color.White, "END", 0.dp, 0.dp),
 }
 
@@ -30,13 +32,7 @@ class VSMNode(
     }
 
     val data = mutableMapOf<String, Any>()
-
-    //    var nextState = NONE
     val nodes = mutableListOf<VSMNode>()
-
-    init {
-        "---> Created state $id $name".e
-    }
 
     fun addChild(newId: Int, name: String, x: Float, y: Float): VSMNode {
         val node = VSMNode(
@@ -51,46 +47,45 @@ class VSMNode(
 
         return node
     }
-
-//    fun getNext(): VSMNode = nextState
 }
 
 class StateMachineController {
-    var node = VSMNode.NONE
+    var currentNode = VSMNode.NONE
     val nodes = mutableStateListOf<VSMNode>()
     val nodeMap = mutableMapOf<Int, VSMNode>()
 
     fun create(name: String, x: Float, y: Float): VSMNode {
         val id = nodes.size
 
-        node = if (node == VSMNode.NONE)
+        currentNode = if (currentNode == VSMNode.NONE) {
             VSMNode(
                 id,
                 name,
                 mutableFloatStateOf(x),
                 mutableFloatStateOf(y)
             )
-        else
-            node.addChild(id, name, x, y)
+        } else {
+            currentNode.addChild(id, name, x, y)
+        }
 
         "--> Creating node $id".e
 
-        saveNode(node)
+        saveNode(currentNode)
 
-        return node
+        return currentNode
     }
 
-    fun hasLeafs() = node.nodes.isNotEmpty()
+    fun hasLeafs() = currentNode.nodes.isNotEmpty()
 
     fun reset() {
-        node = nodes[0]
+        currentNode = nodes[0]
     }
 
     fun getById(selectedId: Int) = nodeMap[selectedId]!!
 
     fun addChild(nodeId: Int, text: String, x: Float, y: Float) {
-        "--> Adding node to $nodeId".e
         val node = getById(nodeId).addChild(nodes.size, text, x, y)
+        currentNode = node
 
         saveNode(node)
     }

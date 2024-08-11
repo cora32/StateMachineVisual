@@ -2,6 +2,8 @@ package io.iskopasi.visualstatemachine
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -31,9 +33,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -42,58 +46,20 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.atan2
 
 
-inline val Int.dp: Dp
-    @Composable get() = with(LocalDensity.current) { this@dp.toDp() }
+//inline val Int.dp: Dp
+//    @Composable get() = with(LocalDensity.current) { this@dp.toDp() }
 
 inline val Dp.px: Float
     @Composable get() = with(LocalDensity.current) { this@px.toPx() }
 
-//@Preview
-//@Composable
-//fun MainField() {
-//    var scale by remember { mutableStateOf(1f) }
-//    var rotation by remember { mutableStateOf(0f) }
-//    var offset by remember { mutableStateOf(Offset.Zero) }
-//    val state = rememberTransformableState { zoomChange, offsetChange, rotationChange ->
-//        scale *= zoomChange
-//        rotation += rotationChange
-//        offset += offsetChange
-//    }
-//    val background = remember { Color(0xFF292929) }
-//
-//    Box(
-//        modifier = Modifier
-//            .background(background)
-//            .fillMaxSize()
-//            .graphicsLayer(
-//                scaleX = scale,
-//                scaleY = scale,
-//                rotationZ = rotation,
-//                translationX = offset.x,
-//                translationY = offset.y
-//            )
-//            .onSizeChanged {
-//                size = it
-//
-//                points.clear()
-//                for (x in (0..size.width) step step) {
-//                    for (y in (0..size.height) step step) {
-//                        points.add(Offset(x.toFloat(), y.toFloat()))
-//                    }
-//                }
-//            })
-//}
-
-private var firstOffset = Offset.Zero
-
 @Composable
 fun MainField(model: UIModel) {
     var scale by remember { mutableFloatStateOf(1f) }
-    var rotation by remember { mutableFloatStateOf(0f) }
+//    var rotation by remember { mutableFloatStateOf(0f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     val state = rememberTransformableState { zoomChange, offsetChange, rotationChange ->
         scale *= zoomChange
-        rotation += rotationChange
+//        rotation += rotationChange
         offset += offsetChange
     }
     val background = remember { Color(0xFF292929) }
@@ -103,10 +69,6 @@ fun MainField(model: UIModel) {
     val points: MutableList<Offset> = remember {
         mutableListOf()
     }
-    val step = remember {
-        30.dp
-    }
-    model.cellSize = step
     var size by remember {
         mutableStateOf(IntSize.Zero)
     }
@@ -118,7 +80,7 @@ fun MainField(model: UIModel) {
         background = Color.Red.copy(alpha = 0.2f)
     )
 
-    val stepPx = step.px
+    val stepPx = model.cellSize.px
     val half = remember { stepPx / 2f }
     val pointRadius = remember { 5 * stepPx / 6f }
     val wingRadius = 8.dp.px
@@ -130,7 +92,7 @@ fun MainField(model: UIModel) {
             .graphicsLayer(
                 scaleX = scale,
                 scaleY = scale,
-                rotationZ = rotation,
+//                rotationZ = rotation,
                 translationX = offset.x,
                 translationY = offset.y
             )
@@ -140,12 +102,14 @@ fun MainField(model: UIModel) {
                 points.clear()
                 var x = 0f
                 var y = 0f
+
                 // Fill background dots data
                 while (x < size.width.toFloat()) {
                     while (y < size.height.toFloat()) {
                         points.add(Offset(x, y))
                         y += stepPx
                     }
+
                     x += stepPx
                     y = 0f
                 }
@@ -163,7 +127,6 @@ fun MainField(model: UIModel) {
                     }
 
                     // Drawing arrows
-                    firstOffset = Offset.Zero
                     for (node in model.nodes) {
                         if (model.selectedId.intValue == node.id)
                             drawSelectedBox(node, stepPx)
@@ -191,9 +154,7 @@ fun MainField(model: UIModel) {
                     val remainingY = offset.y % stepPx
                     val y = offset.y - remainingY
 
-                    val coord = Offset(x, y)
-
-                    model.createNode("${index++}", coord)
+                    model.createNode("${index++}", Offset(x, y))
                 }
             }
     ) {
@@ -224,7 +185,7 @@ private fun DrawScope.drawArrows(
     pointRadius: Float,
     wingRadius: Float
 ) {
-    firstOffset = Offset(
+    val firstOffset = Offset(
         node.x.value,
         node.y.value,
     )
@@ -290,6 +251,12 @@ private fun DrawScope.drawArrows(
 @Composable
 fun VSMNode(node: VSMNode, model: UIModel) {
     val nodeType = model.getNodeType(node)
+    val cellSizePx = model.cellSize.px
+
+    var savedDeltaX = 0f
+    var savedDeltaY = 0f
+    var savedNodeX = node.x.value
+    var savedNodeY = node.y.value
 
     Box(
         modifier = Modifier
@@ -310,21 +277,50 @@ fun VSMNode(node: VSMNode, model: UIModel) {
                 color = Color.White
             )
             .pointerInput(nodeType.width.value, nodeType.height.value) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+
+                    savedDeltaX = 0f
+                    savedDeltaY = 0f
+                    savedNodeX = node.x.value
+                    savedNodeY = node.y.value
+                }
+            }
+            .pointerInput(nodeType.width.value, nodeType.height.value) {
                 detectTapGestures {
                     model.selectNode(node)
                 }
             }
             .pointerInput(nodeType.width.value, nodeType.height.value) {
                 detectDragGestures { change, dragAmount ->
-                    node.x.value += dragAmount.x
-                    node.y.value += dragAmount.y
+                    savedDeltaX += dragAmount.x
+                    savedDeltaY += dragAmount.y
+
+                    val newDeltaX = cellSizePx * (savedDeltaX / cellSizePx).toInt()
+                    val newX = savedNodeX + newDeltaX
+                    if (node.x.value != newX) {
+                        node.x.value = newX
+                    }
+
+                    val newDeltaY = cellSizePx * (savedDeltaY / cellSizePx).toInt()
+                    val newY = savedNodeY + newDeltaY
+                    if (node.y.value != newY) {
+                        node.y.value = newY
+                    }
                 }
             }) {
         Text(
             text = nodeType.label,
             textAlign = TextAlign.Center,
             color = nodeType.textColor,
-            fontSize = 8.sp,
+            fontSize = 11.sp,
+            overflow = TextOverflow.Visible,
+            softWrap = false,
+            style = TextStyle(
+                platformStyle = PlatformTextStyle(
+                    includeFontPadding = false,
+                ),
+            ),
             modifier = Modifier
                 .align(Alignment.Center)
         )
