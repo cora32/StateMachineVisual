@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">VisualStateMachine</string>
+    <string name="name">Name:</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="remove_node_dialog_title">Delete node %1$s</string>
+    <string name="remove_node_dialog_body">Are you sure you want to delete node %1$s</string>
+    <string name="remove">Remove</string>
+    <string name="id">Id:</string>
 </resources>

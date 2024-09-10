@@ -27,6 +27,16 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding)) {
                         MainField(model)
+
+                        // Remove node Dialog
+                        if (model.dialogData.value != null)
+                            ShowDialog(model.dialogData.value!!.node, {
+                                model.removeNode(model.dialogData.value!!.node)
+                                model.hideDialog()
+                                model.hideMenu()
+                            }, {
+                                model.hideDialog()
+                            })
                     }
                 }
             }

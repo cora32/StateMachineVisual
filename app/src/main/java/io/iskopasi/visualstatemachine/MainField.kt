@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package io.iskopasi.visualstatemachine
 
 import androidx.compose.foundation.background
@@ -8,12 +10,32 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -22,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -33,8 +56,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -89,13 +114,13 @@ fun MainField(model: UIModel) {
         modifier = Modifier
             .background(background)
             .fillMaxSize()
-            .graphicsLayer(
-                scaleX = scale,
-                scaleY = scale,
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
 //                rotationZ = rotation,
-                translationX = offset.x,
+                translationX = offset.x
                 translationY = offset.y
-            )
+            }
             .onSizeChanged {
                 size = it
 
@@ -126,11 +151,16 @@ fun MainField(model: UIModel) {
                         )
                     }
 
-                    // Drawing arrows
+                    // Drawing graphics
                     for (node in model.nodes) {
-                        if (model.selectedId.intValue == node.id)
-                            drawSelectedBox(node, stepPx)
-                        drawArrows(node, half, pointRadius, wingRadius)
+//                        // Draw selected highlight
+//                        if (model.selectedId.intValue == node.id)
+//                            drawSelectedBox(node, stepPx)
+
+                        // Draw arrows
+                        if (node.children.isNotEmpty()) {
+                            drawArrows(node, half, pointRadius, wingRadius)
+                        }
 
 //                        val textLayoutResult = textMeasurer.measure(node.name, style)
 //                        drawText(
@@ -148,21 +178,195 @@ fun MainField(model: UIModel) {
             .transformable(state = state)
             .pointerInput(size.width, size.height) {
                 detectTapGestures { offset ->
+                    model.hideMenu()
+
                     val remainingX = offset.x % stepPx
                     val x = offset.x - remainingX
 
                     val remainingY = offset.y % stepPx
                     val y = offset.y - remainingY
 
-                    model.createNode("${index++}", Offset(x, y))
+                    model.createNode(coord = Offset(x, y))
                 }
             }
     ) {
+        // Redrawing nodes
         for (node in model.nodes) {
             VSMNode(node, model)
         }
+
+        // Menu
+        if (model.menuData.value != null) VSCMenu(model.menuData.value!!, model)
     }
 }
+
+@Composable
+fun VSCMenu(menuData: MenuData, model: UIModel) {
+    var name by remember {
+        mutableStateOf(menuData.node.name.value)
+    }
+
+    Box(modifier = Modifier
+        .width(210.dp)
+        .offset {
+            IntOffset(menuData.x.toInt(), menuData.y.toInt())
+        }
+        .border(
+            width = 2.dp,
+            color = Color.White,
+            shape = RoundedCornerShape(8.dp)
+        )
+        .clip(RoundedCornerShape(8.dp))
+        .background(Color(0xFF383838))
+        .padding(top = 14.dp, start = 10.dp, end = 10.dp, bottom = 0.dp)
+    ) {
+        Column {
+            // Node Id
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.id))
+                Text(
+                    menuData.node.id.toString(),
+                    textAlign = TextAlign.Center,
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        color = Color.Yellow
+                    ),
+                    modifier = Modifier.width(110.dp)
+                )
+            }
+            // Node name
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.name))
+                EText(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                    },
+                    modifier = Modifier.width(110.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(40.dp))
+            // Remove node button
+            Box {
+                TextButton(
+                    onClick = {
+                        model.showDeleteDialog(menuData.node)
+                    },
+                    shape = RoundedCornerShape(0.dp),
+                    colors = ButtonColors(
+                        containerColor = Color(0x25FF0000),
+                        contentColor = Color.Yellow,
+                        disabledContentColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+                    ),
+                    modifier = Modifier
+                        .height(40.dp)
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        stringResource(R.string.remove),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            // Buttons
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    onClick = {
+                        menuData.save(name)
+                        model.hideMenu()
+                    },
+                    shape = RoundedCornerShape(0.dp),
+                    colors = ButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = Color.Yellow,
+                        disabledContentColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+
+                        ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    Text(
+                        stringResource(R.string.ok),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                TextButton(
+                    onClick = {
+                        model.hideMenu()
+                    },
+                    shape = RoundedCornerShape(0.dp),
+                    colors = ButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = Color.Yellow,
+                        disabledContentColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+
+                        ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    Text(
+                        stringResource(R.string.cancel),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ShowDialog(node: VSMNode, onConfirmation: () -> Unit, onDismissRequest: () -> Unit) {
+    AlertDialog(
+        icon = {
+            Icon(Icons.Rounded.Warning, contentDescription = "Are you sure")
+        },
+        title = {
+            Text(text = stringResource(R.string.remove_node_dialog_title, node.name.value))
+        },
+        text = {
+            Text(text = stringResource(R.string.remove_node_dialog_body, node.name.value))
+        },
+        onDismissRequest = {
+            onDismissRequest()
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirmation()
+                }
+            ) {
+                Text(stringResource(R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    onDismissRequest()
+                }
+            ) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
 
 private fun DrawScope.drawSelectedBox(node: VSMNode, stepPx: Float) {
     val selectedBoxOffset = 10.dp.toPx()
@@ -190,7 +394,7 @@ private fun DrawScope.drawArrows(
         node.y.value,
     )
 
-    for (child in node.nodes) {
+    for (child in node.children) {
         val secondOffset = Offset(
             child.x.value,
             child.y.value,
@@ -258,9 +462,11 @@ fun VSMNode(node: VSMNode, model: UIModel) {
     var savedNodeX = node.x.value
     var savedNodeY = node.y.value
 
+    val frameGap = remember { 6.dp }
+
     Box(
         modifier = Modifier
-            .width(nodeType.width)
+            .defaultMinSize(nodeType.width)
             .height(nodeType.height)
             .offset {
                 val xOffset = (model.cellSize.toPx() - nodeType.width.toPx()) / 2
@@ -276,7 +482,7 @@ fun VSMNode(node: VSMNode, model: UIModel) {
                 width = 1.dp,
                 color = Color.White
             )
-            .pointerInput(nodeType.width.value, nodeType.height.value) {
+            .pointerInput(node.id, node.id) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
 
@@ -286,12 +492,15 @@ fun VSMNode(node: VSMNode, model: UIModel) {
                     savedNodeY = node.y.value
                 }
             }
-            .pointerInput(nodeType.width.value, nodeType.height.value) {
-                detectTapGestures {
+            .pointerInput(node.id, node.id) {
+                detectTapGestures(onLongPress = { offset ->
+                    model.showMenu(node)
+                }
+                ) {
                     model.selectNode(node)
                 }
             }
-            .pointerInput(nodeType.width.value, nodeType.height.value) {
+            .pointerInput(node.id, node.id) {
                 detectDragGestures { change, dragAmount ->
                     savedDeltaX += dragAmount.x
                     savedDeltaY += dragAmount.y
@@ -308,7 +517,27 @@ fun VSMNode(node: VSMNode, model: UIModel) {
                         node.y.value = newY
                     }
                 }
-            }) {
+            }
+            .drawWithCache {
+                onDrawBehind {
+                    // Draw selected frame
+                    if (model.selectedId.intValue == node.id)
+                        drawRect(
+                            color = Color.White,
+                            topLeft = Offset(
+                                0f - frameGap.toPx(),
+                                0f - frameGap.toPx()
+                            ),
+                            size = Size(
+                                size.width + frameGap.toPx() * 2f,
+                                size.height + frameGap.toPx() * 2f
+                            ),
+                            style = Stroke(width = 2.dp.toPx())
+                        )
+                }
+            }
+            .padding(4.dp)
+    ) {
         Text(
             text = nodeType.label,
             textAlign = TextAlign.Center,
@@ -323,6 +552,50 @@ fun VSMNode(node: VSMNode, model: UIModel) {
             ),
             modifier = Modifier
                 .align(Alignment.Center)
+        )
+    }
+}
+
+@Composable
+fun EText(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier,
+    singleLine: Boolean = true
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+//        visualTransformation = visualTransformation,
+        interactionSource = interactionSource,
+//        enabled = enabled,
+        singleLine = singleLine,
+        textStyle = LocalTextStyle.current.copy(
+            textAlign = TextAlign.Center,
+            color = Color.Yellow,
+            fontSize = 13.sp
+        ),
+    ) { innerTextField ->
+        TextFieldDefaults.DecorationBox(
+            value = value,
+            visualTransformation = VisualTransformation.None,
+            innerTextField = innerTextField,
+            singleLine = singleLine,
+            enabled = true,
+            interactionSource = interactionSource,
+            contentPadding = PaddingValues(0.dp),
+            colors = TextFieldDefaults.colors(
+                disabledTextColor = Color.Black,
+                focusedContainerColor = Color(0xFF686868),
+                unfocusedContainerColor = Color(0xFF8E8E8E),
+
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent
+            ),
         )
     }
 }

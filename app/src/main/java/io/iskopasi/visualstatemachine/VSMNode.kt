@@ -3,6 +3,7 @@ package io.iskopasi.visualstatemachine
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -21,71 +22,87 @@ enum class VSMNodeType(
     END(Color.Black, Color.White, "END", 0.dp, 0.dp),
 }
 
-class VSMNode(
+data class VSMNode(
     val id: Int = -1,
-    val name: String = "",
+    val name: MutableState<String> = mutableStateOf(""),
     var x: MutableState<Float> = mutableFloatStateOf(0f),
     var y: MutableState<Float> = mutableFloatStateOf(0f)
 ) {
     companion object {
-        val NONE = VSMNode(-1, "NONE")
+        val NONE = VSMNode(-1, mutableStateOf("NONE"))
     }
 
     val data = mutableMapOf<String, Any>()
-    val nodes = mutableListOf<VSMNode>()
+    val parents = mutableListOf<VSMNode>()
+    val children = mutableListOf<VSMNode>()
 
     fun addChild(newId: Int, name: String, x: Float, y: Float): VSMNode {
         val node = VSMNode(
-            newId, name,
+            newId, mutableStateOf(name),
             mutableFloatStateOf(x),
             mutableFloatStateOf(y),
-        )
+        ).apply {
+            parents.add(this@VSMNode)
+        }
 
         "--> Adding new node ${node.id} to $id".e
 
-        nodes.add(node)
+        children.add(node)
 
         return node
     }
 }
 
 class StateMachineController {
-    var currentNode = VSMNode.NONE
+    var latestId = 0
+
+    //    var lastNode = VSMNode.NONE
     val nodes = mutableStateListOf<VSMNode>()
     val nodeMap = mutableMapOf<Int, VSMNode>()
 
     fun create(name: String, x: Float, y: Float): VSMNode {
-        val id = nodes.size
+        val newNode = VSMNode(
+            latestId,
+            mutableStateOf(latestId.toString()),
+            mutableFloatStateOf(x),
+            mutableFloatStateOf(y)
+        )
 
-        currentNode = if (currentNode == VSMNode.NONE) {
-            VSMNode(
-                id,
-                name,
-                mutableFloatStateOf(x),
-                mutableFloatStateOf(y)
-            )
-        } else {
-            currentNode.addChild(id, name, x, y)
-        }
+//        lastNode = if (lastNode == VSMNode.NONE) {
+//            VSMNode(
+//                id,
+//                mutableStateOf(name),
+//                mutableFloatStateOf(x),
+//                mutableFloatStateOf(y)
+//            )
+//        } else {
+//            lastNode.addChild(id, name, x, y)
+//        }
 
-        "--> Creating node $id".e
+        "--> Creating newNode $latestId".e
 
-        saveNode(currentNode)
+        saveNode(newNode)
 
-        return currentNode
+        return newNode
     }
 
-    fun hasLeafs() = currentNode.nodes.isNotEmpty()
+//    fun hasLeafs() = lastNode.children.isNotEmpty()
+//
+//    fun reset() {
+//        lastNode = nodes[0]
+//    }
 
-    fun reset() {
-        currentNode = nodes[0]
+    fun getById(selectedId: Int): VSMNode {
+        "--> Attempting to get node $selectedId".e
+
+        return nodeMap[selectedId]!!
     }
-
-    fun getById(selectedId: Int) = nodeMap[selectedId]!!
 
     fun addChild(nodeId: Int, text: String, x: Float, y: Float) {
-        val node = getById(nodeId).addChild(nodes.size, text, x, y)
-        currentNode = node
+        "--> Attempting to add child ${latestId} to parent $nodeId".e
+
+        val node = getById(nodeId).addChild(latestId, latestId.toString(), x, y)
+//        lastNode = node
 
         saveNode(node)
     }
@@ -93,5 +110,25 @@ class StateMachineController {
     private fun saveNode(node: VSMNode) {
         nodes.add(node)
         nodeMap[node.id] = node
+
+        latestId++
+    }
+
+    fun remove(node: VSMNode) {
+        "--> Deleting node: ${node.id} ${node.name.value}".e
+
+        // Remove this child from parents
+        node.parents.forEach {
+            it.children.remove(node)
+        }
+
+        // Remove this parent from children
+        node.children.forEach {
+            it.parents.remove(node)
+        }
+
+        // Remove node
+        nodes.remove(node)
+        nodeMap.remove(node.id)
     }
 }
