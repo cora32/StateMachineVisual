@@ -13,25 +13,22 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,6 +55,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -69,51 +67,70 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.atan2
+import kotlin.math.max
 
-
-//inline val Int.dp: Dp
-//    @Composable get() = with(LocalDensity.current) { this@dp.toDp() }
 
 inline val Dp.px: Float
     @Composable get() = with(LocalDensity.current) { this@px.toPx() }
 
+val nodeTextStyle = TextStyle(
+    platformStyle = PlatformTextStyle(
+        includeFontPadding = false,
+    ),
+    textAlign = TextAlign.Center,
+    fontSize = 11.sp,
+)
+
 @Composable
-fun MainField(model: UIModel) {
+fun DotField(model: UIModel, block: @Composable BoxScope.() -> Unit) {
+    val stepPx = model.cellSize.px
+    val textMeasurer = rememberTextMeasurer()
     var scale by remember { mutableFloatStateOf(1f) }
 //    var rotation by remember { mutableFloatStateOf(0f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     val state = rememberTransformableState { zoomChange, offsetChange, rotationChange ->
         scale *= zoomChange
 //        rotation += rotationChange
-        offset += offsetChange
+        offset += offsetChange * scale
     }
     val background = remember { Color(0xFF292929) }
     val pointColor = remember {
         Color(0xFFC2C2C2)
     }
-    val points: MutableList<Offset> = remember {
+    val pointList: MutableList<Offset> = remember {
         mutableListOf()
     }
     var size by remember {
         mutableStateOf(IntSize.Zero)
     }
-    val textMeasurer = rememberTextMeasurer()
-    var index = remember { 0 }
-    val style = TextStyle(
-        fontSize = 15.sp,
-        color = Color.Black,
-        background = Color.Red.copy(alpha = 0.2f)
-    )
+    val points = remember(size) {
+        pointList.clear()
+        var x = 0f
+        var y = 0f
 
-    val stepPx = model.cellSize.px
-    val half = remember { stepPx / 2f }
+        // Fill background dots data
+        while (x < size.width.toFloat()) {
+            while (y < size.height.toFloat()) {
+                pointList.add(Offset(x, y))
+                y += stepPx
+            }
+
+            x += stepPx
+            y = 0f
+        }
+
+        pointList
+    }
+    val halfOfNode = remember { stepPx / 2f }
     val pointRadius = remember { 5 * stepPx / 6f }
     val wingRadius = 8.dp.px
 
     Box(
         modifier = Modifier
+            .wrapContentSize(unbounded = true, align = Alignment.Center)
+            .width(3000.dp)
+            .height(3000.dp)
             .background(background)
-            .fillMaxSize()
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -123,23 +140,9 @@ fun MainField(model: UIModel) {
             }
             .onSizeChanged {
                 size = it
-
-                points.clear()
-                var x = 0f
-                var y = 0f
-
-                // Fill background dots data
-                while (x < size.width.toFloat()) {
-                    while (y < size.height.toFloat()) {
-                        points.add(Offset(x, y))
-                        y += stepPx
-                    }
-
-                    x += stepPx
-                    y = 0f
-                }
             }
             .drawWithCache {
+
                 onDrawBehind {
                     // Drawing background dots
                     if (points.isNotEmpty()) {
@@ -153,13 +156,20 @@ fun MainField(model: UIModel) {
 
                     // Drawing graphics
                     for (node in model.nodes) {
-//                        // Draw selected highlight
-//                        if (model.selectedId.intValue == node.id)
-//                            drawSelectedBox(node, stepPx)
-
                         // Draw arrows
                         if (node.children.isNotEmpty()) {
-                            drawArrows(node, half, pointRadius, wingRadius)
+                            val textLayoutResult =
+                                textMeasurer.measure(node.name.value, nodeTextStyle)
+
+                            drawArrows(
+                                node,
+                                xOffset = max(textLayoutResult.size.width / 2f, halfOfNode),
+                                yOffset = halfOfNode,
+                                defaultHalfOfNode = halfOfNode,
+                                pointRadius,
+                                wingRadius,
+                                textMeasurer = textMeasurer
+                            )
                         }
 
 //                        val textLayoutResult = textMeasurer.measure(node.name, style)
@@ -189,7 +199,15 @@ fun MainField(model: UIModel) {
                     model.createNode(coord = Offset(x, y))
                 }
             }
+
     ) {
+        block()
+    }
+}
+
+@Composable
+fun MainField(model: UIModel) {
+    DotField(model) {
         // Redrawing nodes
         for (node in model.nodes) {
             VSMNode(node, model)
@@ -331,63 +349,29 @@ fun VSCMenu(menuData: MenuData, model: UIModel) {
     }
 }
 
-@Composable
-fun ShowDialog(node: VSMNode, onConfirmation: () -> Unit, onDismissRequest: () -> Unit) {
-    AlertDialog(
-        icon = {
-            Icon(Icons.Rounded.Warning, contentDescription = "Are you sure")
-        },
-        title = {
-            Text(text = stringResource(R.string.remove_node_dialog_title, node.name.value))
-        },
-        text = {
-            Text(text = stringResource(R.string.remove_node_dialog_body, node.name.value))
-        },
-        onDismissRequest = {
-            onDismissRequest()
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onConfirmation()
-                }
-            ) {
-                Text(stringResource(R.string.ok))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    onDismissRequest()
-                }
-            ) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
-    )
-}
-
-
-private fun DrawScope.drawSelectedBox(node: VSMNode, stepPx: Float) {
-    val selectedBoxOffset = 10.dp.toPx()
-    val selectBoxSize = stepPx + selectedBoxOffset
-
-    drawRect(
-        color = Color.White,
-        topLeft = Offset(
-            node.x.value - selectedBoxOffset / 2f,
-            node.y.value - selectedBoxOffset / 2f
-        ),
-        size = Size(selectBoxSize, selectBoxSize),
-        style = Stroke(width = 2.dp.toPx())
-    )
-}
+//private fun DrawScope.drawSelectedBox(node: VSMNode, stepPx: Float) {
+//    val selectedBoxOffset = 10.dp.toPx()
+//    val selectBoxSize = stepPx + selectedBoxOffset
+//
+//    drawRect(
+//        color = Color.White,
+//        topLeft = Offset(
+//            node.x.value - selectedBoxOffset / 2f,
+//            node.y.value - selectedBoxOffset / 2f
+//        ),
+//        size = Size(selectBoxSize, selectBoxSize),
+//        style = Stroke(width = 2.dp.toPx())
+//    )
+//}
 
 private fun DrawScope.drawArrows(
     node: VSMNode,
-    half: Float,
+    xOffset: Float,
+    yOffset: Float,
+    defaultHalfOfNode: Float,
     pointRadius: Float,
-    wingRadius: Float
+    wingRadius: Float,
+    textMeasurer: TextMeasurer
 ) {
     val firstOffset = Offset(
         node.x.value,
@@ -400,10 +384,12 @@ private fun DrawScope.drawArrows(
             child.y.value,
         )
 
-        val fixedFirstX = firstOffset.x + half
-        val fixedFirstY = firstOffset.y + half
-        val fixedSecondX = secondOffset.x + half
-        val fixedSecondY = secondOffset.y + half
+        val textLayoutResult = textMeasurer.measure(child.name.value, nodeTextStyle)
+
+        val fixedFirstX = firstOffset.x + xOffset
+        val fixedFirstY = firstOffset.y + yOffset
+        val fixedSecondX = secondOffset.x + max(textLayoutResult.size.width / 2f, defaultHalfOfNode)
+        val fixedSecondY = secondOffset.y + yOffset
 
         val radiansFirst =
             atan2(fixedSecondY - fixedFirstY, fixedSecondX - fixedFirstX)
@@ -542,14 +528,9 @@ fun VSMNode(node: VSMNode, model: UIModel) {
             text = nodeType.label,
             textAlign = TextAlign.Center,
             color = nodeType.textColor,
-            fontSize = 11.sp,
             overflow = TextOverflow.Visible,
             softWrap = false,
-            style = TextStyle(
-                platformStyle = PlatformTextStyle(
-                    includeFontPadding = false,
-                ),
-            ),
+            style = nodeTextStyle,
             modifier = Modifier
                 .align(Alignment.Center)
         )
