@@ -15,11 +15,11 @@ enum class VSMNodeType(
     var width: Dp,
     var height: Dp,
 ) {
-    START(Color.White, Color.Black, "START", 0.dp, 0.dp),
+    SINGLE(Color.Black, Color.White, "", 0.dp, 0.dp),
+    ENTRY(Color.White, Color.Black, "", 0.dp, 0.dp),
     REGULAR(Color.DarkGray, Color.White, "", 0.dp, 0.dp),
     SELECTOR(Color.Green, Color.Black, "", 0.dp, 0.dp),
     TERMINAL(Color.Red, Color.White, "", 0.dp, 0.dp),
-    END(Color.Black, Color.White, "END", 0.dp, 0.dp),
 }
 
 data class VSMNode(
@@ -33,24 +33,44 @@ data class VSMNode(
     }
 
     val data = mutableMapOf<String, Any>()
-    val parents = mutableListOf<VSMNode>()
-    val children = mutableListOf<VSMNode>()
+    val parents = mutableStateListOf<VSMNode>()
+    val children = mutableStateListOf<VSMNode>()
 
-    fun addChild(newId: Int, name: String, x: Float, y: Float): VSMNode {
-        val node = VSMNode(
-            newId, mutableStateOf(name),
-            mutableFloatStateOf(x),
-            mutableFloatStateOf(y),
-        ).apply {
-            parents.add(this@VSMNode)
+    fun addParent(parent: VSMNode): Boolean {
+        return if (!parents.contains(parent)) {
+            "--> Adding new parent ${parent.id} to $id".e
+            parents.add(parent)
+        } else {
+            "--> Parent ${parent.id} is already added to $id".e
+            false
         }
-
-        "--> Adding new node ${node.id} to $id".e
-
-        children.add(node)
-
-        return node
     }
+
+    fun addChild(child: VSMNode): Boolean {
+        return if (!children.contains(child)) {
+            "--> Adding new child ${child.id} to $id".e
+            children.add(child)
+        } else {
+            "--> Child ${child.id} is already added to $id".e
+            false
+        }
+    }
+
+//    fun addChild(newId: Int, name: String, x: Float, y: Float): VSMNode {
+//        val node = VSMNode(
+//            newId, mutableStateOf(name),
+//            mutableFloatStateOf(x),
+//            mutableFloatStateOf(y),
+//        ).apply {
+//            parents.add(this@VSMNode)
+//        }
+//
+//        "--> Adding new node ${node.id} to $id".e
+//
+//        children.add(node)
+//
+//        return node
+//    }
 }
 
 class StateMachineController {
@@ -60,24 +80,13 @@ class StateMachineController {
     val nodes = mutableStateListOf<VSMNode>()
     val nodeMap = mutableMapOf<Int, VSMNode>()
 
-    fun create(name: String, x: Float, y: Float): VSMNode {
+    fun createNode(text: String, x: Float, y: Float): VSMNode {
         val newNode = VSMNode(
             latestId,
-            mutableStateOf(latestId.toString()),
+            mutableStateOf(text.ifEmpty { latestId.toString() }),
             mutableFloatStateOf(x),
             mutableFloatStateOf(y)
         )
-
-//        lastNode = if (lastNode == VSMNode.NONE) {
-//            VSMNode(
-//                id,
-//                mutableStateOf(name),
-//                mutableFloatStateOf(x),
-//                mutableFloatStateOf(y)
-//            )
-//        } else {
-//            lastNode.addChild(id, name, x, y)
-//        }
 
         "--> Creating newNode $latestId".e
 
@@ -86,25 +95,15 @@ class StateMachineController {
         return newNode
     }
 
-//    fun hasLeafs() = lastNode.children.isNotEmpty()
-//
-//    fun reset() {
-//        lastNode = nodes[0]
-//    }
+    fun createNewChild(parentId: Int, text: String, x: Float, y: Float) {
+        "--> Attempting to add child ${latestId} to parent $parentId".e
 
-    fun getById(selectedId: Int): VSMNode {
-        "--> Attempting to get node $selectedId".e
+        val newNode = createNode(
+            text.ifEmpty { latestId.toString() },
+            x, y
+        )
 
-        return nodeMap[selectedId]!!
-    }
-
-    fun addChild(nodeId: Int, text: String, x: Float, y: Float) {
-        "--> Attempting to add child ${latestId} to parent $nodeId".e
-
-        val node = getById(nodeId).addChild(latestId, latestId.toString(), x, y)
-//        lastNode = node
-
-        saveNode(node)
+        addChildToParent(newNode, parentId)
     }
 
     private fun saveNode(node: VSMNode) {
@@ -130,5 +129,56 @@ class StateMachineController {
         // Remove node
         nodes.remove(node)
         nodeMap.remove(node.id)
+    }
+
+    fun addChildToParent(child: VSMNode, parentId: Int): Boolean =
+        nodeMap[parentId]?.let { parent ->
+            "Adding child (${child.id}) to parent ($parentId)".e
+
+            // Adding child to parent
+            val success = parent.addChild(child)
+
+            // Adding parent to child
+            child.addParent(parent)
+
+            success
+        } ?: false
+
+    fun getType(node: VSMNode) = when {
+        node.children.size == 0 && node.parents.size == 0 -> VSMNodeType.SINGLE.apply {
+            label = node.name.value
+            width = cellSize
+            height = cellSize
+        }
+
+        node.children.size > 0 && node.parents.size == 0 -> VSMNodeType.ENTRY.apply {
+            label = node.name.value
+            width = cellSize
+            height = cellSize
+        }
+
+        node.children.size >= 2 -> VSMNodeType.SELECTOR.apply {
+            label = node.name.value
+            width = cellSize
+            height = cellSize
+        }
+
+        node.children.size == 1 -> VSMNodeType.REGULAR.apply {
+            label = node.name.value
+            width = cellSize
+            height = cellSize
+        }
+
+        node.children.size == 0 -> VSMNodeType.TERMINAL.apply {
+            label = node.name.value
+            width = cellSize
+            height = cellSize
+        }
+
+        else -> VSMNodeType.REGULAR.apply {
+            label = node.name.value
+            width = cellSize
+            height = cellSize
+        }
     }
 }

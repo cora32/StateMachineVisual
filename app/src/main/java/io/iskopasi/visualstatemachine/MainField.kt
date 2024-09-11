@@ -47,6 +47,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PointMode
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -83,17 +84,16 @@ val nodeTextStyle = TextStyle(
 
 @Composable
 fun DotField(model: UIModel, block: @Composable BoxScope.() -> Unit) {
-    val stepPx = model.cellSize.px
+    val stepPx = cellSize.px
     val textMeasurer = rememberTextMeasurer()
     var scale by remember { mutableFloatStateOf(1f) }
 //    var rotation by remember { mutableFloatStateOf(0f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
+//    var offset by remember {  }
     val state = rememberTransformableState { zoomChange, offsetChange, rotationChange ->
         scale *= zoomChange
 //        rotation += rotationChange
-        offset += offsetChange * scale
+        model.globalOffset.value += offsetChange * scale
     }
-    val background = remember { Color(0xFF292929) }
     val pointColor = remember {
         Color(0xFFC2C2C2)
     }
@@ -124,25 +124,35 @@ fun DotField(model: UIModel, block: @Composable BoxScope.() -> Unit) {
     val halfOfNode = remember { stepPx / 2f }
     val pointRadius = remember { 5 * stepPx / 6f }
     val wingRadius = 8.dp.px
+    val backgroundColor = when (model.mode.value) {
+        Modes.Remove -> Color(0xFF320000)
+        Modes.Connect -> Color(0xFF0E3140)
+        Modes.Select -> Color(0xFF2D2D2D)
+    }
+    val selectedWidth = remember {
+        2.dp
+    }
+    val defaultWidth = remember {
+        0.4.dp
+    }
 
     Box(
         modifier = Modifier
             .wrapContentSize(unbounded = true, align = Alignment.Center)
             .width(3000.dp)
             .height(3000.dp)
-            .background(background)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
 //                rotationZ = rotation,
-                translationX = offset.x
-                translationY = offset.y
+                translationX = model.globalOffset.value.x
+                translationY = model.globalOffset.value.y
             }
             .onSizeChanged {
                 size = it
             }
+            .background(backgroundColor)
             .drawWithCache {
-
                 onDrawBehind {
                     // Drawing background dots
                     if (points.isNotEmpty()) {
@@ -168,7 +178,8 @@ fun DotField(model: UIModel, block: @Composable BoxScope.() -> Unit) {
                                 defaultHalfOfNode = halfOfNode,
                                 pointRadius,
                                 wingRadius,
-                                textMeasurer = textMeasurer
+                                textMeasurer = textMeasurer,
+                                strokeWidth = if (model.isSelected(node)) selectedWidth.toPx() else defaultWidth.toPx()
                             )
                         }
 
@@ -272,6 +283,31 @@ fun VSCMenu(menuData: MenuData, model: UIModel) {
                 )
             }
             Spacer(modifier = Modifier.height(40.dp))
+            // Connect to button
+            Box {
+                TextButton(
+                    onClick = {
+                        model.toggleConnectMode()
+                        model.selectNode(menuData.node)
+                        model.hideMenu()
+                    },
+                    shape = RoundedCornerShape(0.dp),
+                    colors = ButtonColors(
+                        containerColor = Color(0x2525B3FF),
+                        contentColor = Color.Yellow,
+                        disabledContentColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+                    ),
+                    modifier = Modifier
+                        .height(40.dp)
+                        .fillMaxWidth()
+                ) {
+                    Text(
+                        stringResource(R.string.connect),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
             // Remove node button
             Box {
                 TextButton(
@@ -319,7 +355,7 @@ fun VSCMenu(menuData: MenuData, model: UIModel) {
                         .weight(1f)
                 ) {
                     Text(
-                        stringResource(R.string.ok),
+                        stringResource(R.string.save),
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -371,7 +407,8 @@ private fun DrawScope.drawArrows(
     defaultHalfOfNode: Float,
     pointRadius: Float,
     wingRadius: Float,
-    textMeasurer: TextMeasurer
+    textMeasurer: TextMeasurer,
+    strokeWidth: Float
 ) {
     val firstOffset = Offset(
         node.x.value,
@@ -423,17 +460,23 @@ private fun DrawScope.drawArrows(
         drawLine(
             color = Color.White,
             start = newFirstOffset,
-            end = newSecondOffset
+            end = newSecondOffset,
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
         )
         drawLine(
             color = Color.White,
             start = newSecondOffset,
-            end = leftWingOffset
+            end = leftWingOffset,
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
         )
         drawLine(
             color = Color.White,
             start = newSecondOffset,
-            end = rightWingOffset
+            end = rightWingOffset,
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
         )
     }
 }
@@ -441,7 +484,7 @@ private fun DrawScope.drawArrows(
 @Composable
 fun VSMNode(node: VSMNode, model: UIModel) {
     val nodeType = model.getNodeType(node)
-    val cellSizePx = model.cellSize.px
+    val cellSizePx = cellSize.px
 
     var savedDeltaX = 0f
     var savedDeltaY = 0f
@@ -455,8 +498,8 @@ fun VSMNode(node: VSMNode, model: UIModel) {
             .defaultMinSize(nodeType.width)
             .height(nodeType.height)
             .offset {
-                val xOffset = (model.cellSize.toPx() - nodeType.width.toPx()) / 2
-                val yOffset = (model.cellSize.toPx() - nodeType.height.toPx()) / 2
+                val xOffset = (cellSize.toPx() - nodeType.width.toPx()) / 2
+                val yOffset = (cellSize.toPx() - nodeType.height.toPx()) / 2
 
                 IntOffset(
                     (node.x.value.toInt() + xOffset).toInt(),
@@ -483,7 +526,7 @@ fun VSMNode(node: VSMNode, model: UIModel) {
                     model.showMenu(node)
                 }
                 ) {
-                    model.selectNode(node)
+                    model.onNodeClick(node)
                 }
             }
             .pointerInput(node.id, node.id) {
