@@ -117,7 +117,6 @@ class UIModel(context: Application) : AndroidViewModel(context) {
     }
 
     fun hideMenu() {
-        "Hiding menu".e
         menuData.value = null
     }
 

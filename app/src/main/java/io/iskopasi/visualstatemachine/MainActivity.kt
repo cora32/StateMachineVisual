@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import io.iskopasi.visualstatemachine.ui.theme.VisualStateMachineTheme
 
+
 class MainActivity : ComponentActivity() {
     private val model: UIModel by viewModels()
 
@@ -63,40 +64,40 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
 
-@Composable
-fun ShowDialog(node: VSMNode, onConfirmation: () -> Unit, onDismissRequest: () -> Unit) {
-    AlertDialog(
-        icon = {
-            Icon(Icons.Rounded.Warning, contentDescription = "Are you sure")
-        },
-        title = {
-            Text(text = stringResource(R.string.remove_node_dialog_title, node.name.value))
-        },
-        text = {
-            Text(text = stringResource(R.string.remove_node_dialog_body, node.name.value))
-        },
-        onDismissRequest = {
-            onDismissRequest()
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onConfirmation()
+    @Composable
+    fun ShowDialog(node: VSMNode, onConfirmation: () -> Unit, onDismissRequest: () -> Unit) {
+        AlertDialog(
+            icon = {
+                Icon(Icons.Rounded.Warning, contentDescription = "Are you sure")
+            },
+            title = {
+                Text(text = stringResource(R.string.remove_node_dialog_title, node.name.value))
+            },
+            text = {
+                Text(text = stringResource(R.string.remove_node_dialog_body, node.name.value))
+            },
+            onDismissRequest = {
+                onDismissRequest()
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onConfirmation()
+                    }
+                ) {
+                    Text(stringResource(R.string.ok))
                 }
-            ) {
-                Text(stringResource(R.string.ok))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    onDismissRequest()
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        onDismissRequest()
+                    }
+                ) {
+                    Text(stringResource(R.string.cancel))
                 }
-            ) {
-                Text(stringResource(R.string.cancel))
             }
-        }
-    )
+        )
+    }
 }

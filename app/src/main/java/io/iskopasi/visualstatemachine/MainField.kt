@@ -8,12 +8,9 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -24,7 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ButtonColors
@@ -35,7 +31,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,29 +41,19 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PointMode
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.atan2
-import kotlin.math.max
 
 
 inline val Dp.px: Float
@@ -83,149 +68,21 @@ val nodeTextStyle = TextStyle(
 )
 
 @Composable
-fun DotField(model: UIModel, block: @Composable BoxScope.() -> Unit) {
-    val stepPx = cellSize.px
-    val textMeasurer = rememberTextMeasurer()
-    var scale by remember { mutableFloatStateOf(1f) }
-//    var rotation by remember { mutableFloatStateOf(0f) }
-//    var offset by remember {  }
-    val state = rememberTransformableState { zoomChange, offsetChange, rotationChange ->
-        scale *= zoomChange
-//        rotation += rotationChange
-        model.globalOffset.value += offsetChange * scale
-    }
-    val pointColor = remember {
-        Color(0xFFC2C2C2)
-    }
-    val pointList: MutableList<Offset> = remember {
-        mutableListOf()
-    }
-    var size by remember {
-        mutableStateOf(IntSize.Zero)
-    }
-    val points = remember(size) {
-        pointList.clear()
-        var x = 0f
-        var y = 0f
-
-        // Fill background dots data
-        while (x < size.width.toFloat()) {
-            while (y < size.height.toFloat()) {
-                pointList.add(Offset(x, y))
-                y += stepPx
-            }
-
-            x += stepPx
-            y = 0f
-        }
-
-        pointList
-    }
-    val halfOfNode = remember { stepPx / 2f }
-    val pointRadius = remember { 5 * stepPx / 6f }
-    val wingRadius = 8.dp.px
-    val backgroundColor = when (model.mode.value) {
-        Modes.Remove -> Color(0xFF320000)
-        Modes.Connect -> Color(0xFF0E3140)
-        Modes.Select -> Color(0xFF2D2D2D)
-    }
-    val selectedWidth = remember {
-        2.dp
-    }
-    val defaultWidth = remember {
-        0.4.dp
-    }
-
-    Box(
-        modifier = Modifier
-            .wrapContentSize(unbounded = true, align = Alignment.Center)
-            .width(3000.dp)
-            .height(3000.dp)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-//                rotationZ = rotation,
-                translationX = model.globalOffset.value.x
-                translationY = model.globalOffset.value.y
-            }
-            .onSizeChanged {
-                size = it
-            }
-            .background(backgroundColor)
-            .drawWithCache {
-                onDrawBehind {
-                    // Drawing background dots
-                    if (points.isNotEmpty()) {
-                        drawPoints(
-                            points,
-                            pointMode = PointMode.Companion.Points,
-                            color = pointColor,
-                            strokeWidth = Stroke.DefaultMiter
-                        )
-                    }
-
-                    // Drawing graphics
-                    for (node in model.nodes) {
-                        // Draw arrows
-                        if (node.children.isNotEmpty()) {
-                            val textLayoutResult =
-                                textMeasurer.measure(node.name.value, nodeTextStyle)
-
-                            drawArrows(
-                                node,
-                                xOffset = max(textLayoutResult.size.width / 2f, halfOfNode),
-                                yOffset = halfOfNode,
-                                defaultHalfOfNode = halfOfNode,
-                                pointRadius,
-                                wingRadius,
-                                textMeasurer = textMeasurer,
-                                strokeWidth = if (model.isSelected(node)) selectedWidth.toPx() else defaultWidth.toPx()
-                            )
-                        }
-
-//                        val textLayoutResult = textMeasurer.measure(node.name, style)
-//                        drawText(
-//                            textMeasurer = textMeasurer,
-//                            text = node.name,
-//                            style = style,
-//                            topLeft = Offset(
-//                                x = node.coords.x + step.value / 2f - textLayoutResult.size.width / 2,
-//                                y = node.coords.y + step.value / 2f - textLayoutResult.size.height / 2,
-//                            )
-//                        )
-                    }
-                }
-            }
-            .transformable(state = state)
-            .pointerInput(size.width, size.height) {
-                detectTapGestures { offset ->
-                    model.hideMenu()
-
-                    val remainingX = offset.x % stepPx
-                    val x = offset.x - remainingX
-
-                    val remainingY = offset.y % stepPx
-                    val y = offset.y - remainingY
-
-                    model.createNode(coord = Offset(x, y))
-                }
-            }
-
-    ) {
-        block()
-    }
-}
-
-@Composable
 fun MainField(model: UIModel) {
-    DotField(model) {
-        // Redrawing nodes
-        for (node in model.nodes) {
-            VSMNode(node, model)
-        }
+    ScalableField(model) {
+        MapBackground()
+        ConnectionsBackground(model)
+        RecompositionIsolator {
+            val nodes = remember { model.nodes }
 
-        // Menu
-        if (model.menuData.value != null) VSCMenu(model.menuData.value!!, model)
+            // Redrawing nodes
+            for (node in nodes) {
+                VSMNode(node, model)
+            }
+
+            // Menu
+            if (model.menuData.value != null) VSCMenu(model.menuData.value!!, model)
+        }
     }
 }
 
@@ -399,87 +256,6 @@ fun VSCMenu(menuData: MenuData, model: UIModel) {
 //        style = Stroke(width = 2.dp.toPx())
 //    )
 //}
-
-private fun DrawScope.drawArrows(
-    node: VSMNode,
-    xOffset: Float,
-    yOffset: Float,
-    defaultHalfOfNode: Float,
-    pointRadius: Float,
-    wingRadius: Float,
-    textMeasurer: TextMeasurer,
-    strokeWidth: Float
-) {
-    val firstOffset = Offset(
-        node.x.value,
-        node.y.value,
-    )
-
-    for (child in node.children) {
-        val secondOffset = Offset(
-            child.x.value,
-            child.y.value,
-        )
-
-        val textLayoutResult = textMeasurer.measure(child.name.value, nodeTextStyle)
-
-        val fixedFirstX = firstOffset.x + xOffset
-        val fixedFirstY = firstOffset.y + yOffset
-        val fixedSecondX = secondOffset.x + max(textLayoutResult.size.width / 2f, defaultHalfOfNode)
-        val fixedSecondY = secondOffset.y + yOffset
-
-        val radiansFirst =
-            atan2(fixedSecondY - fixedFirstY, fixedSecondX - fixedFirstX)
-        val radiansSecond =
-            atan2(fixedFirstY - fixedSecondY, fixedFirstX - fixedSecondX)
-
-        val firstX = radiansFirst.toX(fixedFirstX, pointRadius)
-        val firstY = radiansFirst.toY(fixedFirstY, pointRadius)
-
-        val secondX = radiansSecond.toX(fixedSecondX, pointRadius)
-        val secondY = radiansSecond.toY(fixedSecondY, pointRadius)
-
-
-        val newFirstOffset = Offset(
-            firstX,
-            firstY
-        )
-        val newSecondOffset = Offset(
-            secondX,
-            secondY,
-        )
-        val leftWingOffset = Offset(
-            (radiansSecond - 40f.toRadians()).toX(newSecondOffset.x, wingRadius),
-            (radiansSecond - 40.toRadians()).toY(newSecondOffset.y, wingRadius),
-        )
-        val rightWingOffset = Offset(
-            (radiansSecond + 40.toRadians()).toX(newSecondOffset.x, wingRadius),
-            (radiansSecond + 40.toRadians()).toY(newSecondOffset.y, wingRadius),
-        )
-
-        drawLine(
-            color = Color.White,
-            start = newFirstOffset,
-            end = newSecondOffset,
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = Color.White,
-            start = newSecondOffset,
-            end = leftWingOffset,
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = Color.White,
-            start = newSecondOffset,
-            end = rightWingOffset,
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-    }
-}
 
 @Composable
 fun VSMNode(node: VSMNode, model: UIModel) {

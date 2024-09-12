@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.dp
 
 
 val cellSize = 30.dp
+val mapSize = 5000.dp
 
 // Select mode
 val selectModeTextColorActive = Color(0xB2FFFFFF)
