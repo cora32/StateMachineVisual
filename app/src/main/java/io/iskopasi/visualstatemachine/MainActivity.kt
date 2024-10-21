@@ -20,8 +20,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import io.iskopasi.visualstatemachine.ui.theme.VisualStateMachineTheme
+import io.iskopasi.visualstatemachine.ui.theme.connectModeBgColorActive
+import io.iskopasi.visualstatemachine.ui.theme.removeModeBgColorActive
+import io.iskopasi.visualstatemachine.ui.theme.selectModeBgColorActive
+import kotlinx.coroutines.flow.map
 
 
 class MainActivity : ComponentActivity() {
@@ -30,7 +35,32 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+//            statusBarStyle = SystemBarStyle.auto(
+//                Color.Black.toArgb(),
+//                Color.Black.toArgb()
+//            ),
+//            navigationBarStyle = SystemBarStyle.auto(
+//                Color.Black.toArgb(),
+//                Color.Black.toArgb()
+//            )
+        )
+
+        // Navigation bar color switcher
+        ui {
+            model.modeFlow
+                .map {
+                    when (it) {
+                        Modes.Select -> selectModeBgColorActive.toArgb()
+                        Modes.Connect -> connectModeBgColorActive.toArgb()
+                        Modes.Remove -> removeModeBgColorActive.toArgb()
+                    }
+                }
+                .collect {
+                    window.navigationBarColor = it
+                }
+        }
+
         setContent {
             VisualStateMachineTheme {
                 Scaffold(

@@ -1,14 +1,17 @@
 package io.iskopasi.visualstatemachine
 
+import android.animation.ValueAnimator
 import android.app.Application
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 
 enum class Modes {
     Remove,
@@ -23,7 +26,18 @@ class UIModel(context: Application) : AndroidViewModel(context) {
             Vibrator::class.java
         )
     }
+    private var savedOffset = Offset.Zero
     private val ctrl = StateMachineController()
+    private val animator = ValueAnimator.ofFloat(1f, 0f).apply {
+        duration = 300L
+        interpolator = AccelerateDecelerateInterpolator()
+        addUpdateListener {
+            globalOffset.value = Offset(
+                savedOffset.x * it.animatedValue as Float,
+                savedOffset.y * it.animatedValue as Float,
+            )
+        }
+    }
     val globalOffset = mutableStateOf(Offset.Zero)
     var selectedId = mutableIntStateOf(-1)
     val nodes
@@ -31,6 +45,7 @@ class UIModel(context: Application) : AndroidViewModel(context) {
     val menuData = mutableStateOf<MenuData?>(null)
     val dialogData = mutableStateOf<DialogData?>(null)
     val mode = mutableStateOf<Modes>(Modes.Select)
+    val modeFlow = MutableStateFlow<Modes>(Modes.Select)
 
     fun isSelected(node: VSMNode) = selectedId.intValue == node.id
 
@@ -62,12 +77,16 @@ class UIModel(context: Application) : AndroidViewModel(context) {
         }
     }
 
-    fun selectNode(node: VSMNode) {
-        if (selectedId.intValue != node.id) {
-            "Selected node: ${node.id}".e
-            selectedId.intValue = node.id
-        } else {
-            deselectNode(node)
+    fun selectNode(node: VSMNode, forceSelect: Boolean = false) {
+        when (forceSelect) {
+            true -> selectedId.intValue = node.id
+            false ->
+                if (selectedId.intValue != node.id) {
+                    "Selected node: ${node.id}".e
+                    selectedId.intValue = node.id
+                } else {
+                    deselectNode(node)
+                }
         }
     }
 
@@ -96,7 +115,7 @@ class UIModel(context: Application) : AndroidViewModel(context) {
                 }
             }
 
-            Modes.Remove -> {/* no-op */
+            Modes.Remove -> {
             }
         }
     }
@@ -131,23 +150,38 @@ class UIModel(context: Application) : AndroidViewModel(context) {
     fun toggleRemoveMode() {
         if (mode.value == Modes.Remove)
             toggleSelectMode()
-        else
+        else {
             mode.value = Modes.Remove
+            updateModeFlow()
+        }
+    }
+
+    private fun updateModeFlow() = bg {
+        modeFlow.emit(mode.value)
     }
 
     fun toggleConnectMode() {
         if (mode.value == Modes.Connect)
             toggleSelectMode()
         else
-            mode.value = Modes.Connect
+            enableConnectMode()
+    }
+
+    fun enableConnectMode() {
+        mode.value = Modes.Connect
+        updateModeFlow()
     }
 
     fun toggleSelectMode() {
         mode.value = Modes.Select
+        updateModeFlow()
     }
 
     fun resetGlobalPosition() {
-        globalOffset.value = Offset.Zero
+        if (animator.isRunning) return
+
+        savedOffset = globalOffset.value
+        animator.start()
     }
 }
 

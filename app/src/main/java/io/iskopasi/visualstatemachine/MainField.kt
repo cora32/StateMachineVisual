@@ -73,10 +73,8 @@ fun MainField(model: UIModel) {
         MapBackground()
         ConnectionsBackground(model)
         RecompositionIsolator {
-            val nodes = remember { model.nodes }
-
             // Redrawing nodes
-            for (node in nodes) {
+            for (node in model.nodes) {
                 VSMNode(node, model)
             }
 
@@ -113,13 +111,19 @@ fun VSCMenu(menuData: MenuData, model: UIModel) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(stringResource(R.string.id))
+                Text(
+                    stringResource(R.string.id),
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        color = Color.White
+                    ),
+                )
                 Text(
                     menuData.node.id.toString(),
                     textAlign = TextAlign.Center,
                     style = TextStyle(
                         fontSize = 13.sp,
-                        color = Color.Yellow
+                        color = Color.White
                     ),
                     modifier = Modifier.width(110.dp)
                 )
@@ -130,7 +134,13 @@ fun VSCMenu(menuData: MenuData, model: UIModel) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(stringResource(R.string.name))
+                Text(
+                    stringResource(R.string.name),
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        color = Color.White
+                    )
+                )
                 EText(
                     value = name,
                     onValueChange = {
@@ -144,14 +154,14 @@ fun VSCMenu(menuData: MenuData, model: UIModel) {
             Box {
                 TextButton(
                     onClick = {
-                        model.toggleConnectMode()
-                        model.selectNode(menuData.node)
+                        model.enableConnectMode()
+                        model.selectNode(menuData.node, forceSelect = true)
                         model.hideMenu()
                     },
                     shape = RoundedCornerShape(0.dp),
                     colors = ButtonColors(
                         containerColor = Color(0x2525B3FF),
-                        contentColor = Color.Yellow,
+                        contentColor = Color.White,
                         disabledContentColor = Color.Transparent,
                         disabledContainerColor = Color.Transparent,
                     ),
@@ -174,7 +184,7 @@ fun VSCMenu(menuData: MenuData, model: UIModel) {
                     shape = RoundedCornerShape(0.dp),
                     colors = ButtonColors(
                         containerColor = Color(0x25FF0000),
-                        contentColor = Color.Yellow,
+                        contentColor = Color.White,
                         disabledContentColor = Color.Transparent,
                         disabledContainerColor = Color.Transparent,
                     ),
@@ -202,7 +212,7 @@ fun VSCMenu(menuData: MenuData, model: UIModel) {
                     shape = RoundedCornerShape(0.dp),
                     colors = ButtonColors(
                         containerColor = Color.Transparent,
-                        contentColor = Color.Yellow,
+                        contentColor = Color.White,
                         disabledContentColor = Color.Transparent,
                         disabledContainerColor = Color.Transparent,
 
@@ -223,7 +233,7 @@ fun VSCMenu(menuData: MenuData, model: UIModel) {
                     shape = RoundedCornerShape(0.dp),
                     colors = ButtonColors(
                         containerColor = Color.Transparent,
-                        contentColor = Color.Yellow,
+                        contentColor = Color.White,
                         disabledContentColor = Color.Transparent,
                         disabledContainerColor = Color.Transparent,
 
@@ -375,7 +385,7 @@ fun EText(
         singleLine = singleLine,
         textStyle = LocalTextStyle.current.copy(
             textAlign = TextAlign.Center,
-            color = Color.Yellow,
+            color = Color.White,
             fontSize = 13.sp
         ),
     ) { innerTextField ->

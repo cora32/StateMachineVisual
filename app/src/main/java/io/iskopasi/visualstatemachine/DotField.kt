@@ -49,7 +49,7 @@ fun ConnectionsBackground(model: UIModel) {
     Box(
         Modifier
             .fillMaxSize()
-            .graphicsLayer()
+            .graphicsLayer {}
             .drawWithCache {
                 onDrawBehind {
                     // Drawing graphics
@@ -110,12 +110,11 @@ fun MapBackground() {
     Box(
         Modifier
             .fillMaxSize()
-            .graphicsLayer()
+            .graphicsLayer {}
             .drawWithCache {
                 onDrawBehind {
                     // Drawing background dots
                     if (points.isNotEmpty()) {
-                        "--> drawPoints".e
                         drawPoints(
                             points,
                             pointMode = PointMode.Companion.Points,
@@ -160,7 +159,7 @@ fun ScalableField(
         }
         .background(backgroundColor)
         .transformable(state = state)
-        .pointerInput(1, 2) {
+        .pointerInput(mapSize, mapSize) {
             detectTapGestures { offset ->
                 model.hideMenu()
 

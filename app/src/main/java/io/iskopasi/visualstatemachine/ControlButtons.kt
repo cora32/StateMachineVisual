@@ -24,6 +24,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.iskopasi.visualstatemachine.ui.theme.connectModeBgColorActive
+import io.iskopasi.visualstatemachine.ui.theme.connectModeBgColorInactive
+import io.iskopasi.visualstatemachine.ui.theme.connectModeTextColorActive
+import io.iskopasi.visualstatemachine.ui.theme.connectModeTextColorInactive
+import io.iskopasi.visualstatemachine.ui.theme.removeModeBgColorActive
+import io.iskopasi.visualstatemachine.ui.theme.removeModeBgColorInactive
+import io.iskopasi.visualstatemachine.ui.theme.removeModeTextColorActive
+import io.iskopasi.visualstatemachine.ui.theme.removeModeTextColorInactive
+import io.iskopasi.visualstatemachine.ui.theme.selectModeBgColorActive
+import io.iskopasi.visualstatemachine.ui.theme.selectModeBgColorInactive
+import io.iskopasi.visualstatemachine.ui.theme.selectModeTextColorActive
+import io.iskopasi.visualstatemachine.ui.theme.selectModeTextColorInactive
 
 @Composable
 fun ControlButtons(model: UIModel) {
